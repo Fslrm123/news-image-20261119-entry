@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
-"""Draw "THE WORLD — THURSDAY, 19 NOVEMBER 2026", a one-page newspaper poster.
+"""Draw "The World — THURSDAY, 19 NOVEMBER 2026", a one-page newspaper poster.
 
-Deterministic PIL drawing: no external assets, no randomness. Output: entry.png (1024x1024).
+Deterministic PIL drawing: no randomness. Output: entry.png (1024x1024).
+The masthead uses Pirata One (blackletter, Daily Mail style), bundled in fonts/.
 All stories are real, dated 19 Nov 2026, verified against news reports of the day.
 """
+import os
+
 from PIL import Image, ImageDraw, ImageFont
+
+BASE = os.path.dirname(os.path.abspath(__file__))
 
 W, H = 1024, 1024
 M = 24  # outer margin
@@ -18,6 +23,7 @@ LIGHT = (232, 224, 205)
 SKY = (168, 200, 226)
 SEA = (86, 140, 180)
 
+BLACKLETTER = os.path.join(BASE, "fonts", "PirataOne-Regular.ttf")
 SERIF_B = "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf"
 SERIF = "/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf"
 SERIF_I = "/usr/share/fonts/truetype/liberation/LiberationSerif-Italic.ttf"
@@ -284,8 +290,8 @@ def illo_painting(x, y, w, h):
 # ---------------------------------------------------------------- masthead
 rule(M, W - M, 14, 1)
 rule(M, W - M, 18, 3)
-mast = F(SERIF_B, 60)
-d.text(((W - tw("THE WORLD", mast)) / 2, 24), "THE WORLD", font=mast, fill=INK)
+mast = F(BLACKLETTER, 80)
+d.text(((W - tw("The World", mast)) / 2, 12), "The World", font=mast, fill=INK)
 d.text((M, 90), "Vol. I — No. 3", font=F(SANS, 11), fill=GREY)
 dateline = "THURSDAY, 19 NOVEMBER 2026"
 dfont = F(SANS_B, 22)

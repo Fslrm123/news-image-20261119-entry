@@ -291,13 +291,11 @@ def illo_painting(x, y, w, h):
 rule(M, W - M, 14, 1)
 rule(M, W - M, 18, 3)
 mast = F(BLACKLETTER, 80)
-d.text(((W - tw("The World", mast)) / 2, 12), "The World", font=mast, fill=INK)
-d.text((M, 90), "Vol. I — No. 3", font=F(SANS, 11), fill=GREY)
+d.text((W - M - tw("The World", mast), 12), "The World", font=mast, fill=INK)
 dateline = "THURSDAY, 19 NOVEMBER 2026"
 dfont = F(SANS_B, 22)
-d.text(((W - tw(dateline, dfont)) / 2, 84), dateline, font=dfont, fill=RED)
-rtext = "THURSDAY EDITION"
-d.text((W - M - tw(rtext, F(SANS, 11)), 90), rtext, font=F(SANS, 11), fill=GREY)
+d.text((M, 30), dateline, font=dfont, fill=RED)
+d.text((M, 64), "Vol. I — No. 3", font=F(SANS, 11), fill=GREY)
 rule(M, W - M, 112, 2)
 
 # ---------------------------------------------------------------- lead story

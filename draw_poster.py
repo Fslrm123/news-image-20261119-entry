@@ -1,360 +1,388 @@
 #!/usr/bin/env python3
-"""Draw "The World — THURSDAY, 19 NOVEMBER 2026", a one-page newspaper poster.
+"""The World — front page poster for Thursday, 19 November 2026.
 
-Deterministic PIL drawing: no randomness. Output: entry.png (1024x1024).
-The masthead uses Pirata One (blackletter, Daily Mail style), bundled in fonts/.
-All stories are real, dated 19 Nov 2026, verified against news reports of the day.
+Deterministic PIL-only rendering, 1024x1024. Refined broadsheet style:
+disciplined grid, hairline rules, warm paper, near-black ink, one muted
+red accent, navy numerals.
 """
-import os
 
 from PIL import Image, ImageDraw, ImageFont
 
-BASE = os.path.dirname(os.path.abspath(__file__))
+# ---------------------------------------------------------------- palette
+PAPER = (250, 246, 236)
+INK = (26, 24, 22)
+RED = (163, 44, 38)
+NAVY = (31, 58, 95)
+GREY = (96, 92, 86)
+HAIR = (120, 114, 104)
+SAND = (216, 200, 162)
+SKY = (172, 192, 208)
+SAGE = (142, 162, 132)
+CREAM = (244, 238, 222)
+GOLD = (201, 162, 39)
+ORANGE = (214, 116, 44)
+NIGHT = (36, 48, 92)
 
-W, H = 1024, 1024
-M = 24  # outer margin
-PAPER = (247, 242, 231)
-INK = (26, 26, 26)
-RED = (176, 42, 30)
-NAVY = (29, 58, 110)
-GOLD = (180, 140, 30)
-GREY = (92, 88, 80)
-LIGHT = (232, 224, 205)
-SKY = (168, 200, 226)
-SEA = (86, 140, 180)
-
-BLACKLETTER = os.path.join(BASE, "fonts", "PirataOne-Regular.ttf")
+# ---------------------------------------------------------------- fonts
+PIRATA = "fonts/PirataOne-Regular.ttf"
 SERIF_B = "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf"
-SERIF = "/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf"
+SERIF_R = "/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf"
 SERIF_I = "/usr/share/fonts/truetype/liberation/LiberationSerif-Italic.ttf"
 SANS = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 SANS_B = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
-img = Image.new("RGB", (W, H), PAPER)
-d = ImageDraw.Draw(img)
+W = H = 1024
+MX = 36                      # side margin
+CW = W - 2 * MX              # content width = 952
 
 
 def F(path, size):
     return ImageFont.truetype(path, size)
 
 
-def tw(text, font):
-    return d.textlength(text, font=font)
-
-
-def fit(text, path, size, max_w):
-    """Shrink font size until text fits max_w."""
-    while size > 7 and tw(text, F(path, size)) > max_w:
-        size -= 1
-    return F(path, size)
-
-
-def wrap(text, font, max_w):
-    words, lines, cur = text.split(), [], ""
-    for w in words:
-        trial = (cur + " " + w).strip()
-        if tw(trial, font) <= max_w:
+# ---------------------------------------------------------------- helpers
+def wrap(draw, text, font, max_w):
+    words = text.split()
+    lines, cur = [], ""
+    for word in words:
+        trial = word if not cur else cur + " " + word
+        if draw.textlength(trial, font=font) <= max_w:
             cur = trial
         else:
             if cur:
                 lines.append(cur)
-            cur = w
+            cur = word
     if cur:
         lines.append(cur)
     return lines
 
 
-def text_block(x, y, text, font, max_w, leading, fill=INK, max_lines=None):
-    lines = wrap(text, font, max_w)
-    if max_lines:
-        lines = lines[:max_lines]
-    for ln in lines:
-        d.text((x, y), ln, font=font, fill=fill)
+def draw_lines(draw, x, y, lines, font, fill, leading):
+    for line in lines:
+        draw.text((x, y), line, font=font, fill=fill)
         y += leading
     return y
 
 
-def rule(x0, x1, y, wdt=1, fill=INK):
-    d.line([(x0, y), (x1, y)], fill=fill, width=wdt)
+def spaced_width(draw, text, font, spacing):
+    return sum(draw.textlength(ch, font=font) + spacing for ch in text) - spacing
 
 
-def kicker(x, y, text, fill=RED):
-    d.text((x, y), text, font=F(SANS_B, 10), fill=fill)
+def draw_spaced(draw, x, y, text, font, fill, spacing=1.4):
+    cx = x
+    for ch in text:
+        draw.text((cx, y), ch, font=font, fill=fill)
+        cx += draw.textlength(ch, font=font) + spacing
+    return cx
+
+
+def hrule(draw, x0, x1, y, width=1, fill=HAIR):
+    draw.line([(x0, y), (x1, y)], fill=fill, width=width)
+
+
+def illo_box(draw, x, y, w, h):
+    draw.rectangle([x, y, x + w, y + h], fill=CREAM, outline=HAIR, width=1)
 
 
 # ---------------------------------------------------------------- illustrations
-def illo_courthouse(x, y, w, h):
-    """Peace Palace style courthouse with columns, pediment and scales."""
-    d.rectangle([x, y, x + w, y + h], fill=(214, 222, 232), outline=INK, width=1)
-    d.rectangle([x, y + h - 12, x + w, y + h], fill=(150, 160, 140))
-    cx = x + w // 2 - 40
-    bw = 260
-    bx0, bx1 = cx - bw // 2, cx + bw // 2
-    base_y = y + h - 16
-    d.rectangle([bx0 - 14, base_y, bx1 + 14, base_y + 6], fill=(150, 140, 120), outline=INK)
-    d.rectangle([bx0 - 6, base_y - 6, bx1 + 6, base_y], fill=(170, 160, 140), outline=INK)
-    col_top = y + 40
-    d.rectangle([bx0 + 8, col_top, bx1 - 8, base_y - 6], fill=(206, 188, 164))
-    for i in range(7):
-        cxp = bx0 + 24 + i * ((bw - 48) // 6)
-        d.rectangle([cxp - 6, col_top, cxp + 6, base_y - 6], fill=(238, 232, 218), outline=INK)
-    d.polygon([(bx0 - 8, col_top), (bx1 + 8, col_top), (cx, y + 8)], fill=(196, 84, 62), outline=INK)
-    d.ellipse([cx - 8, y + 24, cx + 8, y + 40], fill=(247, 242, 231), outline=INK)
-    d.rectangle([cx - 10, y + 2, cx + 10, y + 10], fill=(196, 84, 62), outline=INK)
-    d.rectangle([cx - 14, col_top + 8, cx + 14, base_y - 6], fill=(120, 100, 80), outline=INK)
-    # scales of justice, right side, larger
-    sx, sy = x + w - 78, y + 30
-    d.line([(sx, sy), (sx, sy + 56)], fill=INK, width=4)
-    d.line([(sx - 34, sy + 8), (sx + 34, sy + 8)], fill=INK, width=4)
-    d.ellipse([sx - 5, sy - 6, sx + 5, sy + 4], fill=GOLD, outline=INK)
-    for px in (sx - 34, sx + 34):
-        d.line([(px, sy + 8), (px - 11, sy + 30)], fill=INK, width=2)
-        d.line([(px, sy + 8), (px + 11, sy + 30)], fill=INK, width=2)
-        d.arc([px - 14, sy + 20, px + 14, sy + 42], 0, 180, fill=INK, width=3)
-    d.line([(sx - 16, sy + 56), (sx + 16, sy + 56)], fill=INK, width=4)
+def illo_courthouse(draw, x, y, w, h):
+    illo_box(draw, x, y, w, h)
+    cx = x + w / 2
+    base_y = y + h - 14
+    # sun disc behind pediment
+    r = h * 0.20
+    draw.ellipse([cx - r, y + 8, cx + r, y + 8 + 2 * r], fill=(238, 214, 150))
+    # pediment
+    pw = w * 0.46
+    draw.polygon([(cx - pw / 2, y + h * 0.30), (cx + pw / 2, y + h * 0.30),
+                  (cx, y + h * 0.06)], fill=SAND, outline=INK, width=2)
+    # entablature
+    draw.rectangle([cx - pw / 2, y + h * 0.30, cx + pw / 2, y + h * 0.38],
+                   fill=SAND, outline=INK, width=2)
+    # columns
+    n = 5
+    col_top = y + h * 0.38
+    col_bot = base_y - 6
+    for i in range(n):
+        cxx = cx - pw / 2 + (i + 0.5) * (pw / n)
+        draw.rectangle([cxx - 4, col_top, cxx + 4, col_bot], fill=(252, 250, 244),
+                       outline=INK, width=1)
+    # steps
+    draw.rectangle([cx - pw / 2 - 10, base_y - 6, cx + pw / 2 + 10, base_y],
+                   fill=SAND, outline=INK, width=1)
+    draw.rectangle([cx - pw / 2 - 18, base_y, cx + pw / 2 + 18, base_y + 6],
+                   fill=SAND, outline=INK, width=1)
+    # scales of justice in front centre
+    sy = y + h * 0.44
+    draw.line([(cx, sy), (cx, base_y - 10)], fill=INK, width=2)
+    draw.line([(cx - 34, sy + 4), (cx + 34, sy + 4)], fill=INK, width=2)
+    draw.ellipse([cx - 3, sy - 4, cx + 3, sy + 2], fill=INK)
+    for sx in (cx - 34, cx + 34):
+        draw.line([(sx, sy + 4), (sx - 10, sy + 20)], fill=INK, width=1)
+        draw.line([(sx, sy + 4), (sx + 10, sy + 20)], fill=INK, width=1)
+        draw.arc([sx - 12, sy + 14, sx + 12, sy + 30], 0, 180, fill=INK, width=2)
+    draw.line([(cx - 10, base_y - 10), (cx + 10, base_y - 10)], fill=INK, width=2)
 
 
-def illo_flags(x, y, w, h):
-    """Three flags: USA, China, Russia."""
-    d.rectangle([x, y, x + w, y + h], fill=SKY, outline=INK, width=1)
-    fw, fh = (w - 24) // 3, h - 26
-    for i in range(3):
-        fx = x + 8 + i * (fw + 4)
-        d.line([(fx, y + 6), (fx, y + h - 4)], fill=INK, width=2)
-        if i == 0:  # USA simplified
-            for r in range(7):
-                d.rectangle([fx + 2, y + 8 + r * (fh // 7), fx + fw, y + 8 + (r + 1) * (fh // 7)],
-                            fill=(200, 60, 60) if r % 2 == 0 else (245, 245, 245))
-            d.rectangle([fx + 2, y + 8, fx + fw // 2, y + 8 + fh // 2], fill=NAVY)
-            for r in range(3):
-                for c in range(4):
-                    px = fx + 6 + c * 7
-                    py = y + 12 + r * 7
-                    d.ellipse([px, py, px + 3, py + 3], fill=(255, 255, 255))
-        elif i == 1:  # China
-            d.rectangle([fx + 2, y + 8, fx + fw, y + 8 + fh], fill=(204, 34, 34))
-            d.ellipse([fx + 8, y + 14, fx + 18, y + 24], fill=(250, 210, 60))
-            for dx, dy in ((22, 12), (26, 18), (26, 26), (22, 30)):
-                d.ellipse([fx + dx, y + dy, fx + dx + 4, y + dy + 4], fill=(250, 210, 60))
-        else:  # Russia
-            third = fh // 3
-            d.rectangle([fx + 2, y + 8, fx + fw, y + 8 + third], fill=(245, 245, 245))
-            d.rectangle([fx + 2, y + 8 + third, fx + fw, y + 8 + 2 * third], fill=(40, 90, 180))
-            d.rectangle([fx + 2, y + 8 + 2 * third, fx + fw, y + 8 + fh], fill=(200, 50, 50))
+def illo_flags(draw, x, y, w, h):
+    illo_box(draw, x, y, w, h)
+    cols = [RED, NAVY, (120, 130, 140)]
+    base_y = y + h - 8
+    fw = w * 0.30
+    for i, col in enumerate(cols):
+        px = x + 8 + i * (w * 0.55) / 2
+        draw.line([(px, y + 8), (px, base_y)], fill=INK, width=2)
+        draw.polygon([(px, y + 9), (px + fw, y + 13), (px + fw, y + 26),
+                      (px, y + 30)], fill=col, outline=INK, width=1)
+    draw.line([(x + 6, base_y), (x + w - 6, base_y)], fill=INK, width=2)
 
 
-def illo_gta(x, y, w, h):
-    """Vice-city skyline at sunset with palm tree."""
-    for i in range(h):
-        t = i / h
-        col = (int(250 - 60 * t), int(150 - 40 * t), int(90 + 60 * t))
-        d.line([(x, y + i), (x + w, y + i)], fill=col)
-    d.ellipse([x + w - 34, y + 8, x + w - 8, y + 34], fill=(255, 220, 120))
-    heights = [0.45, 0.7, 0.55, 0.85, 0.6, 0.75]
-    bw = w // 6
+def illo_skyline(draw, x, y, w, h):
+    illo_box(draw, x, y, w, h)
+    # sunset
+    r = h * 0.26
+    draw.ellipse([x + w * 0.62 - r, y + h * 0.18, x + w * 0.62 + r, y + h * 0.18 + 2 * r],
+                 fill=ORANGE)
+    base_y = y + h - 8
+    heights = [0.42, 0.62, 0.34, 0.72, 0.5, 0.38]
+    bw = w / len(heights)
     for i, hf in enumerate(heights):
         bx = x + i * bw + 2
-        by = y + h - int(h * hf)
-        d.rectangle([bx, by, bx + bw - 4, y + h], fill=(40, 34, 60))
-        for wy in range(by + 6, y + h - 6, 10):
-            for wx in range(bx + 4, bx + bw - 8, 8):
-                if (wx + wy) % 3 == 0:
-                    d.rectangle([wx, wy, wx + 3, wy + 4], fill=(255, 230, 150))
+        draw.rectangle([bx, base_y - h * hf, bx + bw - 4, base_y], fill=INK)
+        for wy in range(3):
+            for wx in range(2):
+                if (i + wy + wx) % 2 == 0:
+                    draw.rectangle([bx + 3 + wx * 5, base_y - h * hf + 4 + wy * 7,
+                                    bx + 6 + wx * 5, base_y - h * hf + 7 + wy * 7],
+                                   fill=(246, 214, 120))
     # palm
-    px = x + 16
-    d.line([(px, y + h), (px + 8, y + 22)], fill=(60, 40, 30), width=3)
-    for dx, dy in ((-16, -6), (-8, -12), (4, -14), (14, -8), (18, 0)):
-        d.line([(px + 8, y + 22), (px + 8 + dx, y + 22 + dy)], fill=(34, 120, 60), width=3)
-    d.rectangle([x, y, x + w, y + h], outline=INK, width=1)
+    px = x + 10
+    draw.line([(px, base_y), (px + 3, base_y - h * 0.5)], fill=INK, width=2)
+    for dx, dy in [(-9, -4), (-5, -8), (3, -9), (9, -5)]:
+        draw.line([(px + 3, base_y - h * 0.5), (px + 3 + dx, base_y - h * 0.5 + dy)],
+                  fill=SAGE, width=2)
 
 
-def illo_parliament(x, y, w, h):
-    """Parliament dome building."""
-    d.rectangle([x, y, x + w, y + h], fill=(220, 228, 216), outline=INK, width=1)
-    cx = x + w // 2
+def illo_dome(draw, x, y, w, h):
+    illo_box(draw, x, y, w, h)
+    cx = x + w / 2
     base_y = y + h - 8
-    d.rectangle([x + 10, base_y - 26, x + w - 10, base_y], fill=(200, 190, 170), outline=INK)
-    for i in range(6):
-        cxp = x + 20 + i * ((w - 40) // 5)
-        d.rectangle([cxp - 3, base_y - 24, cxp + 3, base_y - 2], fill=(240, 236, 224), outline=INK)
-    d.pieslice([cx - 30, y + 8, cx + 30, y + 52], 180, 360, fill=(90, 140, 110), outline=INK)
-    d.line([(cx, y + 4), (cx, y + 12)], fill=INK, width=2)
-    d.polygon([(cx, y + 4), (cx + 14, y + 7), (cx, y + 10)], fill=RED)
+    bw = w * 0.72
+    # building body
+    draw.rectangle([cx - bw / 2, y + h * 0.55, cx + bw / 2, base_y],
+                   fill=SAND, outline=INK, width=2)
+    # drum + dome
+    draw.rectangle([cx - bw * 0.28, y + h * 0.42, cx + bw * 0.28, y + h * 0.55],
+                   fill=SAND, outline=INK, width=2)
+    draw.pieslice([cx - bw * 0.30, y + h * 0.08, cx + bw * 0.30, y + h * 0.48],
+                  180, 360, fill=SKY, outline=INK, width=2)
+    # finial + flag
+    draw.line([(cx, y + h * 0.08), (cx, y + 3)], fill=INK, width=2)
+    draw.polygon([(cx, y + 3), (cx + 9, y + 6), (cx, y + 10)], fill=RED)
+    # columns + door
+    for i in range(4):
+        cxx = cx - bw / 2 + (i + 0.5) * (bw / 4)
+        draw.line([(cxx, y + h * 0.58), (cxx, base_y - 2)], fill=INK, width=1)
+    draw.rectangle([cx - 4, base_y - h * 0.18, cx + 4, base_y], fill=INK)
 
 
-def illo_chart(x, y, w, h, up=True, label=""):
-    d.rectangle([x, y, x + w, y + h], fill=(250, 250, 248), outline=INK, width=1)
-    pts = []
-    n = 7
-    for i in range(n):
-        px = x + 8 + i * ((w - 16) // (n - 1))
-        frac = i / (n - 1)
-        py = y + h - 10 - int((h - 24) * (frac if up else 1 - frac)) - (6 if i % 2 else 0)
-        pts.append((px, py))
-    col = (30, 140, 60) if up else RED
-    d.line(pts, fill=col, width=3)
-    ex, ey = pts[-1]
+def illo_chart(draw, x, y, w, h, up=True, label=""):
+    illo_box(draw, x, y, w, h)
+    ax, ay = x + 8, y + h - 10
+    draw.line([(ax, y + 6), (ax, ay)], fill=INK, width=1)
+    draw.line([(ax, ay), (x + w - 6, ay)], fill=INK, width=1)
     if up:
-        d.polygon([(ex, ey - 8), (ex - 5, ey + 2), (ex + 5, ey + 2)], fill=col)
+        pts = [(ax + 3, ay - 4), (ax + w * 0.3, ay - h * 0.3),
+               (ax + w * 0.55, ay - h * 0.22), (x + w - 12, y + 10)]
+        col = NAVY
     else:
-        d.polygon([(ex, ey + 8), (ex - 5, ey - 2), (ex + 5, ey - 2)], fill=col)
+        pts = [(ax + 3, y + 10), (ax + w * 0.3, y + h * 0.35),
+               (ax + w * 0.55, y + h * 0.28), (x + w - 12, ay - 5)]
+        col = RED
+    draw.line(pts, fill=col, width=2)
+    ex, ey = pts[-1]
+    draw.polygon([(ex, ey), (ex - 7, ey + (2 if up else -2)), (ex - 2, ey + (7 if up else -7))],
+                 fill=col)
     if label:
-        d.text((x + 6, y + 4), label, font=F(SANS_B, 11), fill=col)
+        f = F(SANS_B, 9)
+        tw = draw.textlength(label, font=f)
+        draw.text((x + w - 6 - tw, y + 4 if up else y + h - 22), label, font=f, fill=col)
 
 
-def illo_bridge(x, y, w, h):
-    d.rectangle([x, y, x + w, y + h], fill=SKY, outline=INK, width=1)
-    d.rectangle([x, y + h - 16, x + w, y + h], fill=SEA)
-    deck_y = y + h - 26
-    d.rectangle([x + 4, deck_y, x + w // 2 - 8, deck_y + 5], fill=(90, 90, 90), outline=INK)
-    d.rectangle([x + w // 2 + 12, deck_y + 4, x + w - 4, deck_y + 9], fill=(90, 90, 90), outline=INK)
-    for px in (x + 18, x + w - 22):
-        d.rectangle([px, y + 10, px + 5, deck_y], fill=(110, 110, 110), outline=INK)
-    d.line([(x + 20, y + 12), (x + w // 2 - 8, deck_y)], fill=INK, width=1)
-    d.line([(x + w - 20, y + 12), (x + w // 2 + 12, deck_y + 4)], fill=INK, width=1)
-    # blast star at the break
-    bx, by = x + w // 2 + 2, deck_y - 2
-    for dx, dy in ((0, -14), (10, -10), (14, 0), (10, 10), (0, 14), (-10, 10), (-14, 0), (-10, -10)):
-        d.line([(bx, by), (bx + dx, by + dy)], fill=(240, 140, 30), width=3)
-    d.ellipse([bx - 5, by - 5, bx + 5, by + 5], fill=(255, 200, 60), outline=RED)
+def illo_bridge(draw, x, y, w, h):
+    illo_box(draw, x, y, w, h)
+    deck_y = y + h * 0.62
+    t1, t2 = x + w * 0.25, x + w * 0.75
+    for tx in (t1, t2):
+        draw.rectangle([tx - 3, y + 8, tx + 3, deck_y + 6], fill=INK)
+    draw.line([(x + 4, deck_y), (x + w - 4, deck_y)], fill=INK, width=3)
+    # cables
+    draw.line([(x + 4, deck_y), (t1, y + 10)], fill=INK, width=1)
+    draw.line([(t1, y + 10), ((t1 + t2) / 2, deck_y - 2)], fill=INK, width=1)
+    draw.line([((t1 + t2) / 2, deck_y - 2), (t2, y + 10)], fill=INK, width=1)
+    draw.line([(t2, y + 10), (x + w - 4, deck_y)], fill=INK, width=1)
+    # water
+    for i in range(3):
+        wy = deck_y + 10 + i * 5
+        draw.line([(x + 8 + i * 6, wy), (x + w - 8 - i * 4, wy)], fill=SKY, width=1)
+    # blast starburst at centre of deck
+    bx, by = (t1 + t2) / 2, deck_y - 4
+    for dx, dy in [(0, -12), (8, -8), (12, 0), (8, 6), (-8, 6), (-12, 0), (-8, -8)]:
+        draw.line([(bx, by), (bx + dx, by + dy)], fill=ORANGE, width=2)
+    draw.ellipse([bx - 4, by - 4, bx + 4, by + 4], fill=RED)
 
 
-def illo_flame(x, y, w, h):
-    d.rectangle([x, y, x + w, y + h], fill=(250, 238, 220), outline=INK, width=1)
-    cx = x + w // 2
-    d.polygon([(cx, y + 6), (cx + 16, y + h - 14), (cx - 16, y + h - 14)], fill=(240, 120, 30))
-    d.polygon([(cx, y + 22), (cx + 10, y + h - 14), (cx - 10, y + h - 14)], fill=(250, 180, 50))
-    d.polygon([(cx, y + 36), (cx + 5, y + h - 14), (cx - 5, y + h - 14)], fill=(255, 230, 140))
-    d.rectangle([x + 8, y + h - 14, x + w - 8, y + h - 8], fill=(90, 70, 50))
+def illo_flame(draw, x, y, w, h):
+    illo_box(draw, x, y, w, h)
+    cx = x + w / 2
+    base_y = y + h - 10
+    # outer flame
+    draw.polygon([(cx, y + 6), (cx + w * 0.20, y + h * 0.42),
+                  (cx + w * 0.16, base_y), (cx - w * 0.16, base_y),
+                  (cx - w * 0.20, y + h * 0.42)], fill=ORANGE, outline=RED, width=1)
+    # inner flame
+    draw.polygon([(cx, y + h * 0.34), (cx + w * 0.10, y + h * 0.58),
+                  (cx + w * 0.08, base_y), (cx - w * 0.08, base_y),
+                  (cx - w * 0.10, y + h * 0.58)], fill=(246, 196, 84))
+    # logs
+    draw.line([(cx - w * 0.24, base_y + 3), (cx + w * 0.24, base_y + 3)], fill=INK, width=3)
+    draw.line([(cx - w * 0.18, base_y + 6), (cx + w * 0.18, base_y + 6)], fill=INK, width=3)
 
 
-def illo_shield(x, y, w, h):
-    d.rectangle([x, y, x + w, y + h], fill=(224, 232, 244), outline=INK, width=1)
-    cx = x + w // 2
-    d.polygon([(cx - 20, y + 8), (cx + 20, y + 8), (cx + 20, y + h - 26), (cx, y + h - 8),
-               (cx - 20, y + h - 26)], fill=NAVY, outline=INK)
-    d.polygon([(cx - 14, y + 14), (cx + 14, y + 14), (cx + 14, y + h - 30), (cx, y + h - 16),
-               (cx - 14, y + h - 30)], fill=(60, 110, 190))
-    d.ellipse([cx - 6, y + 22, cx + 6, y + 34], fill=(250, 210, 60), outline=INK)
+def illo_shield(draw, x, y, w, h):
+    illo_box(draw, x, y, w, h)
+    cx = x + w / 2
+    top = y + 8
+    bot = y + h - 8
+    hw = w * 0.30
+    draw.polygon([(cx - hw, top), (cx + hw, top), (cx + hw, top + h * 0.42),
+                  (cx, bot), (cx - hw, top + h * 0.42)],
+                 fill=NAVY, outline=INK, width=2)
+    # star
+    sx, sy = cx, top + h * 0.30
+    pts = []
+    import math
+    for i in range(10):
+        r = 9 if i % 2 == 0 else 4
+        a = -math.pi / 2 + i * math.pi / 5
+        pts.append((sx + r * math.cos(a), sy + r * math.sin(a)))
+    draw.polygon(pts, fill=(246, 214, 120))
 
 
-def illo_greenland(x, y, w, h):
-    d.rectangle([x, y, x + w, y + h], fill=SEA, outline=INK, width=1)
-    cx, cy = x + w // 2 - 8, y + h // 2
-    pts = [(cx - 18, cy - 20), (cx + 4, cy - 26), (cx + 20, cy - 12), (cx + 14, cy + 8),
-           (cx + 4, cy + 24), (cx - 8, cy + 18), (cx - 20, cy + 2)]
-    d.polygon(pts, fill=(245, 248, 250), outline=INK)
+def illo_greenland(draw, x, y, w, h):
+    illo_box(draw, x, y, w, h)
+    # stylised Greenland landmass
+    gx, gy = x + 8, y + 8
+    gw, gh = w * 0.58, h - 16
+    pts = [(gx + gw * 0.30, gy), (gx + gw * 0.72, gy + gh * 0.08),
+           (gx + gw * 0.95, gy + gh * 0.30), (gx + gw * 0.88, gy + gh * 0.55),
+           (gx + gw * 0.62, gy + gh * 0.78), (gx + gw * 0.45, gy + gh),
+           (gx + gw * 0.30, gy + gh * 0.80), (gx + gw * 0.08, gy + gh * 0.55),
+           (gx + gw * 0.12, gy + gh * 0.25)]
+    draw.polygon(pts, fill=SAGE, outline=INK, width=2)
     # Danish flag
-    fx, fy = x + w - 30, y + 8
-    d.rectangle([fx, fy, fx + 22, fy + 16], fill=(200, 30, 40), outline=INK)
-    d.rectangle([fx + 6, fy, fx + 9, fy + 16], fill=(255, 255, 255))
-    d.rectangle([fx, fy + 6, fx + 22, fy + 9], fill=(255, 255, 255))
+    fx = x + w * 0.70
+    fy = y + h * 0.28
+    fw, fh = w * 0.24, h * 0.34
+    draw.rectangle([fx, fy, fx + fw, fy + fh], fill=RED, outline=INK, width=1)
+    draw.rectangle([fx + fw * 0.30, fy, fx + fw * 0.44, fy + fh], fill=(252, 250, 244))
+    draw.rectangle([fx, fy + fh * 0.42, fx + fw, fy + fh * 0.58], fill=(252, 250, 244))
 
 
-def illo_leaf(x, y, w, h):
-    d.rectangle([x, y, x + w, y + h], fill=(226, 240, 222), outline=INK, width=1)
-    cx, cy = x + w // 2 - 10, y + h // 2
-    d.ellipse([cx - 18, cy - 22, cx + 18, cy + 22], fill=(60, 160, 80), outline=INK)
-    d.line([(cx - 12, cy + 18), (cx + 12, cy - 18)], fill=(30, 100, 50), width=2)
+def illo_leaf_thermo(draw, x, y, w, h):
+    illo_box(draw, x, y, w, h)
+    # leaf
+    lx, ly = x + w * 0.30, y + h * 0.55
+    draw.polygon([(lx - w * 0.20, ly + h * 0.22), (lx - w * 0.16, ly - h * 0.28),
+                  (lx + w * 0.02, ly - h * 0.38), (lx + w * 0.20, ly - h * 0.10),
+                  (lx + w * 0.16, ly + h * 0.20), (lx, ly + h * 0.30)],
+                 fill=SAGE, outline=INK, width=2)
+    draw.line([(lx - w * 0.18, ly + h * 0.24), (lx + w * 0.14, ly - h * 0.30)],
+              fill=INK, width=1)
     # thermometer
-    tx = x + w - 22
-    d.rectangle([tx, y + 8, tx + 8, y + h - 18], fill=(255, 255, 255), outline=INK)
-    d.rectangle([tx + 2, y + 22, tx + 6, y + h - 18], fill=RED)
-    d.ellipse([tx - 3, y + h - 22, tx + 11, y + h - 8], fill=RED, outline=INK)
+    tx = x + w * 0.72
+    draw.rounded_rectangle([tx - 4, y + 8, tx + 4, y + h - 16], radius=4,
+                           fill=(252, 250, 244), outline=INK, width=2)
+    draw.ellipse([tx - 8, y + h - 24, tx + 8, y + h - 8], fill=RED, outline=INK, width=2)
+    draw.rectangle([tx - 2, y + h * 0.45, tx + 2, y + h - 16], fill=RED)
 
 
-def illo_dove(x, y, w, h):
-    d.rectangle([x, y, x + w, y + h], fill=(238, 240, 246), outline=INK, width=1)
-    cx, cy = x + w // 2, y + h // 2 + 4
-    d.ellipse([cx - 24, cy - 8, cx + 16, cy + 12], fill=(255, 255, 255), outline=INK)
-    d.ellipse([cx + 10, cy - 16, cx + 26, cy - 2], fill=(255, 255, 255), outline=INK)
-    d.polygon([(cx + 24, cy - 10), (cx + 34, cy - 7), (cx + 24, cy - 4)], fill=(240, 170, 40))
-    d.ellipse([cx + 16, cy - 12, cx + 20, cy - 8], fill=INK)
-    d.polygon([(cx - 22, cy - 2), (cx - 36, cy - 12), (cx - 30, cy + 4)], fill=(255, 255, 255), outline=INK)
-    d.arc([cx - 14, cy - 18, cx + 8, cy + 2], 200, 340, fill=INK, width=2)
-    # olive branch
-    d.line([(cx + 26, cy - 4), (cx + 38, cy + 4)], fill=(60, 140, 70), width=2)
-    for dx, dy in ((30, 0), (34, 2), (32, 6)):
-        d.ellipse([cx + dx, cy + dy, cx + dx + 6, cy + dy + 4], fill=(60, 140, 70))
+def illo_dove(draw, x, y, w, h):
+    illo_box(draw, x, y, w, h)
+    cx, cy = x + w * 0.48, y + h * 0.55
+    # body
+    draw.ellipse([cx - w * 0.26, cy - h * 0.14, cx + w * 0.20, cy + h * 0.20],
+                 fill=(252, 250, 244), outline=INK, width=2)
+    # head
+    hx, hy = cx + w * 0.20, cy - h * 0.18
+    draw.ellipse([hx - 7, hy - 7, hx + 7, hy + 7], fill=(252, 250, 244), outline=INK, width=2)
+    draw.polygon([(hx + 6, hy), (hx + 13, hy + 2), (hx + 6, hy + 4)], fill=GOLD)
+    draw.ellipse([hx + 1, hy - 3, hx + 4, hy], fill=INK)
+    # wing
+    draw.polygon([(cx - w * 0.16, cy - h * 0.08), (cx + w * 0.06, cy - h * 0.30),
+                  (cx + w * 0.10, cy - h * 0.02)], fill=SKY, outline=INK, width=1)
+    # tail
+    draw.polygon([(cx - w * 0.24, cy), (cx - w * 0.38, cy - h * 0.10),
+                  (cx - w * 0.36, cy + h * 0.10)], fill=(252, 250, 244), outline=INK, width=1)
+    # olive branch in beak
+    draw.line([(hx + 12, hy + 3), (hx + 22, hy + 9)], fill=SAGE, width=2)
+    for dx, dy in [(16, 4), (20, 8), (15, 9)]:
+        draw.ellipse([hx + dx - 3, hy + dy - 2, hx + dx + 3, hy + dy + 2], fill=SAGE)
 
 
-def illo_painting(x, y, w, h):
-    d.rectangle([x, y, x + w, y + h], fill=(240, 232, 214), outline=INK, width=1)
-    d.rectangle([x + 8, y + 8, x + w - 8, y + h - 8], fill=(30, 40, 110), outline=GOLD, width=3)
-    for i, (dx, dy, r) in enumerate(((24, 20, 7), (46, 14, 5), (62, 26, 6), (34, 34, 4), (56, 42, 5))):
-        d.ellipse([x + dx - r, y + dy - r, x + dx + r, y + dy + r], fill=(250, 220, 90))
-        d.arc([x + dx - r - 4, y + dy - r - 4, x + dx + r + 4, y + dy + r + 4], 0, 360, fill=(140, 170, 240), width=2)
-    d.arc([x + 14, y + h - 30, x + w - 14, y + h + 6], 180, 360, fill=(90, 140, 220), width=3)
+def illo_starry(draw, x, y, w, h):
+    illo_box(draw, x, y, w, h)
+    # frame
+    draw.rectangle([x + 6, y + 6, x + w - 6, y + h - 6], fill=NIGHT, outline=GOLD, width=3)
+    # swirls
+    for (sx, sy, r) in [(x + w * 0.35, y + h * 0.35, 12), (x + w * 0.62, y + h * 0.28, 9),
+                        (x + w * 0.5, y + h * 0.5, 7)]:
+        draw.arc([sx - r, sy - r * 0.7, sx + r, sy + r * 0.7], 20, 320, fill=SKY, width=2)
+    # stars
+    for (sx, sy) in [(x + w * 0.22, y + h * 0.22), (x + w * 0.78, y + h * 0.2),
+                     (x + w * 0.85, y + h * 0.45), (x + w * 0.3, y + h * 0.55)]:
+        draw.ellipse([sx - 3, sy - 3, sx + 3, sy + 3], fill=(246, 214, 120))
+        draw.line([(sx - 5, sy), (sx + 5, sy)], fill=(246, 214, 120), width=1)
+        draw.line([(sx, sy - 5), (sx, sy + 5)], fill=(246, 214, 120), width=1)
+    # cypress
+    cxp = x + w * 0.16
+    draw.polygon([(cxp, y + h - 10), (cxp - 5, y + h * 0.45), (cxp, y + h * 0.25),
+                  (cxp + 5, y + h * 0.45)], fill=(24, 40, 30))
+    # hills
+    draw.arc([x + 8, y + h * 0.55, x + w - 8, y + h + 14], 180, 360, fill=SAGE, width=2)
 
 
-# ---------------------------------------------------------------- masthead
-rule(M, W - M, 14, 1)
-rule(M, W - M, 18, 3)
-mast = F(BLACKLETTER, 80)
-d.text((M, 12), "The World", font=mast, fill=INK)
-dateline = "THURSDAY, 19 NOVEMBER 2026"
-dfont = F(SANS_B, 22)
-d.text((W - M - tw(dateline, dfont), 30), dateline, font=dfont, fill=RED)
-vol = "Vol. I — No. 3"
-vfont = F(SANS, 11)
-d.text((W - M - tw(vol, vfont), 64), vol, font=vfont, fill=GREY)
-rule(M, W - M, 112, 2)
+# ---------------------------------------------------------------- content
+LEAD = dict(
+    kicker="THE HAGUE — INTERNATIONAL COURT OF JUSTICE",
+    headline=["WORLD COURT FINDS MYANMAR", "GUILTY OF GENOCIDE"],
+    caption="The Peace Palace, seat of the ICJ. The 9–6 ruling is the first against a state.",
+    body=("In a judgment read over three hours, the court held Myanmar responsible for "
+          "genocide against the Rohingya in its 2017 “clearance operations” — the first "
+          "such finding against a state in the court's 80-year history. Myanmar must "
+          "report within two years on restitution and compensation for some 400 destroyed "
+          "villages. The Gambia brought the case in 2019."),
+)
 
-# ---------------------------------------------------------------- lead story
-LX, LW = M, 600
-kicker(LX, 120, "THE HAGUE — INTERNATIONAL COURT OF JUSTICE")
-head = fit("WORLD COURT FINDS MYANMAR", SERIF_B, 34, LW)
-d.text((LX, 134), "WORLD COURT FINDS MYANMAR", font=head, fill=INK)
-d.text((LX, 170), "GUILTY OF GENOCIDE", font=head, fill=INK)
-illo_courthouse(LX, 210, LW, 104)
-d.text((LX, 318), "The Peace Palace, seat of the ICJ. The 9–6 ruling is the first against a state.",
-        font=F(SERIF_I, 11), fill=GREY)
-lead_body = ("In a judgment read over three hours, the court held Myanmar responsible for genocide "
-             "against the Rohingya in its 2017 “clearance operations” — the first such finding "
-             "against a state in the court's 80-year history. Myanmar must report within two years "
-             "on restitution and compensation for some 400 destroyed villages. The Gambia brought "
-             "the case in 2019.")
-text_block(LX, 334, lead_body, F(SANS, 12.5), LW, 16, max_lines=4)
+RAIL = [
+    ("SHENZHEN — APEC SUMMIT", "Three leaders, one table",
+     "Trump, Xi and Putin held their first three-way summit and issued a “peace declaration”.",
+     illo_flags),
+    ("LOS ANGELES — GAMING", "GTA VI: $2.36B launch day",
+     "An estimated 24.6M copies sold on day one (Sensor Tower), doubling GTA V's record; Metascore 99.",
+     illo_skyline),
+    ("JAKARTA — PARLIAMENT", "Asset-forfeiture bill passed",
+     "Parliament approved seizing assets without a prior criminal conviction, via court proceedings.",
+     illo_dome),
+]
 
-# ---------------------------------------------------------------- right rail
-RX, RW = 640, 360
-d.line([(632, 120), (632, 400)], fill=INK, width=1)
-
-
-def rail_story(y, kick, headline, body, illo):
-    kicker(RX, y, kick)
-    hf = fit(headline, SERIF_B, 17, RW - 104)
-    lines = wrap(headline, hf, RW - 104)[:2]
-    yy = y + 14
-    for ln in lines:
-        d.text((RX + 104, yy), ln, font=hf, fill=INK)
-        yy += 20
-    illo(RX, y + 14, 96, 66)
-    text_block(RX + 104, yy + 2, body, F(SANS, 11), RW - 104, 14, max_lines=3)
-
-
-rail_story(120, "SHENZHEN — APEC SUMMIT", "Three leaders, one table",
-           "Trump, Xi and Putin held their first three-way summit and issued a “peace declaration”.",
-           illo_flags)
-rule(RX, W - M, 216, 1, GREY)
-rail_story(224, "LOS ANGELES — GAMING", "GTA VI: $2.36B launch day",
-           "An estimated 24.6M copies sold on day one (Sensor Tower), doubling GTA V's record; Metascore 99.",
-           illo_gta)
-rule(RX, W - M, 320, 1, GREY)
-rail_story(328, "JAKARTA — PARLIAMENT", "Asset-forfeiture bill passed",
-           "Parliament approved seizing assets without a prior criminal conviction, via court proceedings.",
-           illo_parliament)
-
-rule(M, W - M, 406, 2)
-
-# ---------------------------------------------------------------- story grid
-grid = [
+GRID = [
     ("NEW YORK — MARKETS", "Anthropic's $1.5T debut",
      "Priced at $83, it closed day one at $97.17 (+17%) despite a sell-off.",
-     lambda x, y, w, h: illo_chart(x, y, w, h, True, "$97.17")),
+     lambda d, x, y, w, h: illo_chart(d, x, y, w, h, up=True, label="$97.17")),
     ("NEW YORK — MARKETS", "Stocks slide on AI nerves",
      "S&P 500 fell 2.02%, a fifth straight loss; Nikkei −4.68%, gold −2.42%.",
-     lambda x, y, w, h: illo_chart(x, y, w, h, False, "−2.02%")),
+     lambda d, x, y, w, h: illo_chart(d, x, y, w, h, up=False, label="−2.02%")),
     ("KYIV — WAR IN UKRAINE", "Bridge hit a third time",
      "Ukraine hit the Crimean Bridge a third time in four days; Putin vowed revenge.",
      illo_bridge),
@@ -369,83 +397,30 @@ grid = [
      illo_greenland),
     ("ANTALYA — COP31", "Ministers hunt a deal",
      "Negotiators worked late to unblock the climate text in the final stretch.",
-     illo_leaf),
+     illo_leaf_thermo),
     ("GAZA CITY — MIDDLE EAST", "Peace plan scores 4 of 26",
      "Aid groups rated the 20-point plan 4/26 as evacuation orders hit Gaza.",
      illo_dove),
     ("NEW YORK — ART", "Van Gogh record: $190.4M",
      "“Châtaigniers en fleurs” (1890) set an artist record at Sotheby's.",
-     illo_painting),
+     illo_starry),
 ]
 
-GX0, GY0 = M, 414
-COLW, ROWH, GAPX, GAPY = 317, 82, 12, 5
-for i, (kick, headline, body, illo) in enumerate(grid):
-    cx = GX0 + (i % 3) * (COLW + GAPX)
-    cy = GY0 + (i // 3) * (ROWH + GAPY)
-    illo(cx, cy + 14, 84, 58)
-    kicker(cx, cy, kick)
-    hf = fit(headline, SERIF_B, 15, COLW - 92)
-    lines = wrap(headline, hf, COLW - 92)[:2]
-    yy = cy + 14
-    for ln in lines:
-        d.text((cx + 92, yy), ln, font=hf, fill=INK)
-        yy += 17
-    text_block(cx + 92, yy + 1, body, F(SANS, 10.5), COLW - 92, 12.5, max_lines=3)
+FLASHPOINTS = ["THE HAGUE", "SHENZHEN", "KYIV", "GAZA CITY", "DHAKA", "PORT-AU-PRINCE",
+               "COPENHAGEN", "ANTALYA", "JAKARTA", "YONGYON", "SUVA", "YENNE"]
 
-GY1 = GY0 + 3 * ROWH + 2 * GAPY  # 414 + 268 = 682
-rule(M, W - M, GY1 + 8, 2)
-
-# ---------------------------------------------------------------- flashpoints
-FY = GY1 + 16
-d.text((M, FY), "FLASHPOINTS — WHERE THE DAY HAPPENED", font=F(SANS_B, 13), fill=RED)
-places = ["THE HAGUE", "SHENZHEN", "KYIV", "GAZA CITY", "DHAKA", "PORT-AU-PRINCE",
-          "COPENHAGEN", "ANTALYA", "JAKARTA", "YONGYON", "SUVA", "YENNE"]
-pf = F(SANS_B, 12)
-for r in range(2):
-    yy = FY + 22 + r * 20
-    xx = M
-    for p in places[r * 6:(r + 1) * 6]:
-        d.ellipse([xx, yy + 3, xx + 8, yy + 11], fill=RED)
-        d.text((xx + 13, yy), p, font=pf, fill=INK)
-        xx += 13 + tw(p, pf) + 26
-
-# ---------------------------------------------------------------- by the numbers
-NY = FY + 68
-rule(M, W - M, NY, 1, GREY)
-d.text((M, NY + 6), "BY THE NUMBERS", font=F(SANS_B, 13), fill=RED)
-numbers = [
-    ("9–6", "ICJ vote holding Myanmar\nresponsible for genocide"),
-    ("$2.36B", "GTA VI day-one sales,\nestimated (Sensor Tower)"),
-    ("51–48", "US Senate vote rejecting\nthe Iran war-powers bid"),
-    ("356,000", "people displaced in Yemen\nin 3½ months (IOM)"),
-    ("589M", "children in conflict\nzones in 2025 (23.4%)"),
+NUMBERS = [
+    ("9–6", ["ICJ vote holding Myanmar", "responsible for genocide"]),
+    ("$2.36B", ["GTA VI day-one sales,", "estimated (Sensor Tower)"]),
+    ("51–48", ["US Senate vote rejecting", "the Iran war-powers bid"]),
+    ("356,000", ["people displaced in Yemen", "in 3½ months (IOM)"]),
+    ("589M", ["children in conflict", "zones in 2025 (23.4%)"]),
 ]
-BW = (W - 2 * M - 4 * 10) // 5
-for i, (num, label) in enumerate(numbers):
-    bx = M + i * (BW + 10)
-    d.rectangle([bx, NY + 26, bx + BW, NY + 80], outline=INK, width=1)
-    nf = fit(num, SERIF_B, 26, BW - 10)
-    d.text((bx + (BW - tw(num, nf)) / 2, NY + 30), num, font=nf, fill=NAVY)
-    ly = NY + 58
-    for ln in label.split("\n"):
-        d.text((bx + (BW - tw(ln, F(SANS, 9))) / 2, ly), ln, font=F(SANS, 9), fill=GREY)
-        ly += 11
 
-# ---------------------------------------------------------------- pull-quote
-QY = NY + 88
-quote = "“The only reasonable inference is an intention to destroy.”"
-qf = F(SERIF_I, 17)
-d.text(((W - tw(quote, qf)) / 2, QY), quote, font=qf, fill=INK)
-attrib = "— Judge Yuji Iwasawa, ICJ President, on Myanmar's actions in Rakhine"
-af = F(SANS, 10)
-d.text(((W - tw(attrib, af)) / 2, QY + 24), attrib, font=af, fill=GREY)
+QUOTE = "“The only reasonable inference is an intention to destroy.”"
+QUOTE_ATTR = "— Judge Yuji Iwasawa, ICJ President, on Myanmar's actions in Rakhine"
 
-# ---------------------------------------------------------------- in brief
-BY = QY + 42
-rule(M, W - M, BY, 2)
-d.text((M, BY + 6), "IN BRIEF", font=F(SANS_B, 13), fill=RED)
-brief = [
+BRIEF = [
     "US Senate rejects Iran war-powers bid, 51–48",
     "UK + Norway pledge £100M+ for Ukrainian naval craft",
     "Serbia: Cupic elected parliament speaker, 140 votes",
@@ -471,21 +446,166 @@ brief = [
     "Democrats pick Jeffries for speaker, 251–11",
     "US and Venezuela sign military pact",
 ]
-bf = F(SANS, 9.5)
-BCOLW = (W - 2 * M - 2 * 16) // 3
-for c in range(3):
-    cx = M + c * (BCOLW + 16)
-    yy = BY + 26
-    for item in brief[c * 8:(c + 1) * 8]:
-        d.ellipse([cx, yy + 4, cx + 5, yy + 9], fill=RED)
-        line = wrap(item, bf, BCOLW - 12)[0]
-        d.text((cx + 11, yy), line, font=bf, fill=INK)
-        yy += 11.5
 
-# ---------------------------------------------------------------- footer
-foot = "THE WORLD • THURSDAY, 19 NOVEMBER 2026 • 37 stories • 30+ countries • Also inside: markets p.2, weather p.3, sport p.4"
-ff = F(SANS, 9)
-d.text(((W - tw(foot, ff)) / 2, H - 14), foot, font=ff, fill=GREY)
+FOOTER = ("THE WORLD  •  THURSDAY, 19 NOVEMBER 2026  •  37 stories  •  30+ countries  •  "
+          "Also inside: markets p.2, weather p.3, sport p.4")
 
-img.save("entry.png", optimize=True)
-print("wrote entry.png")
+
+# ---------------------------------------------------------------- render
+def main():
+    img = Image.new("RGB", (W, H), PAPER)
+    d = ImageDraw.Draw(img)
+
+    f_mast = F(PIRATA, 68)
+    f_date = F(SERIF_B, 22)
+    f_vol = F(SERIF_I, 14)
+    f_kick = F(SANS_B, 9)
+    f_lead_h = F(SERIF_B, 35)
+    f_cap = F(SERIF_I, 11)
+    f_body = F(SANS, 10)
+    f_rail_h = F(SERIF_B, 16)
+    f_grid_h = F(SERIF_B, 15)
+    f_sec = F(SANS_B, 11)
+    f_num = F(SERIF_B, 27)
+    f_num_lab = F(SANS, 9)
+    f_quote = F(SERIF_I, 19)
+    f_attr = F(SANS, 10)
+    f_brief = F(SANS, 9)
+    f_foot = F(SANS, 9)
+
+    # ---- masthead
+    d.text((MX, 18), "The World", font=f_mast, fill=INK)
+    date = "THURSDAY, 19 NOVEMBER 2026"
+    dw = d.textlength(date, font=f_date)
+    d.text((W - MX - dw, 30), date, font=f_date, fill=INK)
+    vol = "Vol. I — No. 3"
+    vw = d.textlength(vol, font=f_vol)
+    d.text((W - MX - vw, 58), vol, font=f_vol, fill=GREY)
+    # double rule
+    hrule(d, MX, W - MX, 94, width=3, fill=INK)
+    hrule(d, MX, W - MX, 100, width=1, fill=INK)
+
+    # ---- lead + rail row
+    top = 110
+    lead_w = 600
+    rail_x = MX + lead_w + 24
+    rail_w = W - MX - rail_x
+
+    y = top
+    draw_spaced(d, MX, y, LEAD["kicker"], f_kick, RED)
+    y += 15
+    for line in LEAD["headline"]:
+        d.text((MX, y), line, font=f_lead_h, fill=INK)
+        y += 40
+    y += 4
+    illo_courthouse(d, MX, y, lead_w, 84)
+    y += 88
+    d.text((MX, y), LEAD["caption"], font=f_cap, fill=GREY)
+    y += 15
+    draw_lines(d, MX, y, wrap(d, LEAD["body"], f_body, lead_w), f_body, INK, 13)
+    lead_bottom = y + 4 * 13
+
+    # vertical divider
+    d.line([(MX + lead_w + 12, top), (MX + lead_w + 12, lead_bottom)], fill=HAIR, width=1)
+
+    # right rail
+    ry = top
+    for i, (kick, head, body, illo) in enumerate(RAIL):
+        draw_spaced(d, rail_x, ry, kick, f_kick, RED)
+        ry += 13
+        d.text((rail_x, ry), head, font=f_rail_h, fill=INK)
+        ry += 20
+        illo(d, rail_x, ry, 88, 52)
+        draw_lines(d, rail_x + 96, ry, wrap(d, body, f_body, rail_w - 96), f_body, INK, 13)
+        ry += 58
+        if i < len(RAIL) - 1:
+            hrule(d, rail_x, W - MX, ry - 2, width=1)
+            ry += 5
+
+    row_bottom = max(lead_bottom, ry)
+    hrule(d, MX, W - MX, row_bottom + 4, width=1)
+
+    # ---- story grid 3x3
+    gy = row_bottom + 12
+    gap = 16
+    cell_w = (CW - 2 * gap) / 3
+    row_h = 95
+    for idx, (kick, head, body, illo) in enumerate(GRID):
+        col, row = idx % 3, idx // 3
+        cx = MX + col * (cell_w + gap)
+        cy = gy + row * row_h
+        draw_spaced(d, cx, cy, kick, f_kick, RED, spacing=1.0)
+        d.text((cx, cy + 12), head, font=f_grid_h, fill=INK)
+        illo(d, cx, cy + 33, 76, 52)
+        draw_lines(d, cx + 84, cy + 34, wrap(d, body, f_body, cell_w - 84), f_body, INK, 13)
+    grid_bottom = gy + 3 * row_h - 4
+    hrule(d, MX, W - MX, grid_bottom + 2, width=1)
+
+    # ---- flashpoints
+    fy = grid_bottom + 10
+    draw_spaced(d, MX, fy, "FLASHPOINTS — WHERE THE DAY HAPPENED", f_sec, INK, spacing=1.6)
+    fy += 16
+    f_place = F(SANS_B, 10)
+    px = MX
+    for i, place in enumerate(FLASHPOINTS):
+        d.ellipse([px, fy + 3, px + 5, fy + 8], fill=RED)
+        px += 9
+        d.text((px, fy), place, font=f_place, fill=INK)
+        px += d.textlength(place, font=f_place) + 14
+
+    # ---- by the numbers
+    ny = fy + 20
+    hrule(d, MX, W - MX, ny, width=1)
+    ny += 7
+    draw_spaced(d, MX, ny, "BY THE NUMBERS", f_sec, INK, spacing=1.6)
+    ny += 18
+    ncell = CW / 5
+    for i, (num, labels) in enumerate(NUMBERS):
+        cx = MX + i * ncell
+        d.text((cx, ny), num, font=f_num, fill=NAVY)
+        ly = ny + 33
+        for lab in labels:
+            d.text((cx, ly), lab, font=f_num_lab, fill=INK)
+            ly += 11
+        if i > 0:
+            d.line([(cx - 8, ny), (cx - 8, ly - 4)], fill=HAIR, width=1)
+    num_bottom = ny + 33 + 22
+
+    # ---- pull quote
+    qy = num_bottom + 8
+    hrule(d, MX, W - MX, qy, width=1)
+    qy += 9
+    qw = d.textlength(QUOTE, font=f_quote)
+    d.text(((W - qw) / 2, qy), QUOTE, font=f_quote, fill=INK)
+    qy += 24
+    aw = d.textlength(QUOTE_ATTR, font=f_attr)
+    d.text(((W - aw) / 2, qy), QUOTE_ATTR, font=f_attr, fill=GREY)
+    quote_bottom = qy + 15
+
+    # ---- in brief
+    by = quote_bottom + 5
+    hrule(d, MX, W - MX, by, width=1)
+    by += 7
+    draw_spaced(d, MX, by, "IN BRIEF", f_sec, INK, spacing=1.6)
+    by += 16
+    col_w = (CW - 2 * gap) / 3
+    for col in range(3):
+        cx = MX + col * (col_w + gap)
+        cy = by
+        for item in BRIEF[col * 8:(col + 1) * 8]:
+            d.ellipse([cx, cy + 3, cx + 4, cy + 7], fill=RED)
+            d.text((cx + 9, cy), item, font=f_brief, fill=INK)
+            cy += 11
+    brief_bottom = by + 8 * 11
+
+    # ---- footer
+    hrule(d, MX, W - MX, brief_bottom + 4, width=1)
+    fw = d.textlength(FOOTER, font=f_foot)
+    d.text(((W - fw) / 2, brief_bottom + 9), FOOTER, font=f_foot, fill=GREY)
+
+    img.save("entry.png", optimize=True)
+    print("saved entry.png")
+
+
+if __name__ == "__main__":
+    main()
